@@ -60,13 +60,18 @@ Address:
 #include "nodebug.h"
 #endif
 
-#define PROPERTY_ID_INTERVAL 1
-
 struct state {
-	struct etimer et;
-	uint8_t interval;
+	struct etimer et_poll;
+	struct etimer et_send;
+	uint8_t interval_poll;
+	uint8_t interval_send;
+	uint8_t next_value;
 };
-static const struct state initVar PROGMEM = {.interval = 5};
+static const struct state initVar PROGMEM = {
+	.interval_poll = 1,
+	.interval_send = 5,
+	.next_value = 0
+};
 
 #define LOOCI_COMPONENT_NAME pirSensor
 
@@ -75,14 +80,19 @@ COMPONENT_NO_INTERFACES();
 COMPONENT_NO_RECEPTACLES();
 //COMPONENT_RECEPTACLES(APPLICATION_EVENT_TYPE);
 
-#define LOOCI_NR_PROPERTIES 1
-//format = {propertyId, datatype,offset,size,name}
-LOOCI_PROPERTIES({PROPERTY_ID_INTERVAL,DATATYPE_BYTE,offsetof(struct state,interval),1,NULL});
+#define LOOCI_NR_PROPERTIES 2
+#define PROPERTY_ID_INTERVAL_POLL 1
+#define PROPERTY_ID_INTERVAL_SEND 2
 
-LOOCI_COMPONENT("pirSensor",struct state);
-LOOCI_COMPONENT_INIT("temp sample",struct state,&initVar);
+//format = {propertyId, datatype, offset, size, name}
+LOOCI_PROPERTIES(
+	{PROPERTY_ID_INTERVAL_POLL, DATATYPE_BYTE, offsetof(struct state, interval_poll), 1, NULL},
+	{PROPERTY_ID_INTERVAL_SEND, DATATYPE_BYTE, offsetof(struct state, interval_send), 1, NULL}
+);
 
-static uint8_t init(struct state* compState, void* data){
+LOOCI_COMPONENT_INIT("pirSensor", struct state, &initVar);
+
+static uint8_t init(struct state* compState, void* data) {
 	// Configure PB4 as input pin
 	DDRB = (0 << DDB4);
 	PORTB = (1 << PB4);
@@ -90,13 +100,21 @@ static uint8_t init(struct state* compState, void* data){
 	return 1;
 }
 
-static uint8_t activate(struct state* compState, void* data){
-	// Start timer
-	ETIMER_SET(&compState->et,CLOCK_SECOND * compState->interval );
+static uint8_t activate(struct state* compState, void* data) {
+	PRINTF("PIR activate\r\n");
+
+	// Start timers
+	ETIMER_SET(&compState->et_poll, CLOCK_SECOND * compState->interval_poll );
+	ETIMER_SET(&compState->et_send, CLOCK_SECOND * compState->interval_send );
 	return 1;
 }
 
-static uint8_t deactivate(struct state* compState, void* data){
+static uint8_t deactivate(struct state* compState, void* data) {
+	PRINTF("PIR deactivate\r\n");
+
+	// Stop timers
+	ETIMER_STOP(&compState->et_poll);
+	ETIMER_STOP(&compState->et_send);
 	return 1;
 }
 
@@ -104,23 +122,39 @@ static uint8_t deactivate(struct state* compState, void* data){
  * Function called when etimer expires
  * Data contains the timer that expired
  */
-static uint8_t time(struct state* compState, struct etimer* data){
-	// Read value
-	uint8_t value = (PINB >> PB4) & 1;
-	PRINTF("value = %d", value);
+static uint8_t time(struct state* compState, struct etimer* data) {
+	uint8_t currentValue;
 
-	// Restart timer
-	ETIMER_SET(&compState->et,CLOCK_SECOND * compState->interval );
+	if (data == &compState->et_poll) {
+		// Read value
+		currentValue = (PINB >> PB4) & 1;
+		PRINTF("PIR value = %d\r\n", currentValue);
+		// Store value for next send
+		compState->next_value = compState->next_value || currentValue;
+	} else if (data == &compState->et_send) {
+		// Send value
+		if (compState->next_value) {
+			PRINTF("PIR send\r\n");
+			// TODO Send
+			// PUBLISH_EVENT(APPLICATION_EVENT_TYPE, &test, sizeof(test));
+		}
+		// Reset value
+		compState->next_value = 0;
+	}
+
+	// Reset timer
+	ETIMER_RESET(data);
+
 	return 1;
 }
 
-static uint8_t event(struct state* compState, core_looci_event_t* event){
+static uint8_t event(struct state* compState, core_looci_event_t* event) {
 	//uint8_t test = 1;
 	//PUBLISH_EVENT(APPLICATION_EVENT_TYPE,&test,sizeof(test));
 	return 1;
 }
 
-static uint8_t propertySet(struct state* compState,struct contiki_call* data){
+static uint8_t propertySet(struct state* compState,struct contiki_call* data) {
 	return 1;
 }
 
