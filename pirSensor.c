@@ -131,6 +131,8 @@ static uint8_t time(struct state* compState, struct etimer* data) {
 		PRINTF("PIR value = %d\r\n", currentValue);
 		// Store value for next send
 		compState->next_value = compState->next_value || currentValue;
+		// Reset timer
+		ETIMER_SET(&compState->et_poll, CLOCK_SECOND * compState->interval_poll );
 	} else if (data == &compState->et_send) {
 		// Send value
 		if (compState->next_value) {
@@ -140,10 +142,9 @@ static uint8_t time(struct state* compState, struct etimer* data) {
 		}
 		// Reset value
 		compState->next_value = 0;
+		// Reset timer
+		ETIMER_SET(&compState->et_send, CLOCK_SECOND * compState->interval_send );
 	}
-
-	// Reset timer
-	ETIMER_RESET(data);
 
 	return 1;
 }
