@@ -31,6 +31,10 @@ Address:
 #ifndef __pirSensor__
 #define __pirSensor__
 
+// Event types
+#define CSDS_EVENT_MOVEMENT_DETECTED 412
+#define CSDS_EVENT_IR_ON 414
+#define CSDS_EVENT_IR_OFF 415
 
 #include "component_pub.h"
 DECLARE_LOOCI_COMPONENT(pirSensor);

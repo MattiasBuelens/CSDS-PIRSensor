@@ -75,10 +75,8 @@ static const struct state initVar PROGMEM = {
 
 #define LOOCI_COMPONENT_NAME pirSensor
 
-COMPONENT_NO_INTERFACES();
-//COMPONENT_INTERFACES(APPLICATION_EVENT_TYPE);
-COMPONENT_NO_RECEPTACLES();
-//COMPONENT_RECEPTACLES(APPLICATION_EVENT_TYPE);
+COMPONENT_INTERFACES(CSDS_EVENT_MOVEMENT_DETECTED);
+COMPONENT_RECEPTACLES(CSDS_EVENT_IR_ON, CSDS_EVENT_IR_OFF);
 
 #define LOOCI_NR_PROPERTIES 2
 #define PROPERTY_ID_INTERVAL_POLL 1
@@ -137,8 +135,8 @@ static uint8_t time(struct state* compState, struct etimer* data) {
 		// Send value
 		if (compState->next_value) {
 			PRINTF("PIR send\r\n");
-			// TODO Send
-			// PUBLISH_EVENT(APPLICATION_EVENT_TYPE, &test, sizeof(test));
+			// Send
+			PUBLISH_EVENT(CSDS_EVENT_MOVEMENT_DETECTED, 0, 0);
 		}
 		// Reset value
 		compState->next_value = 0;
@@ -150,8 +148,16 @@ static uint8_t time(struct state* compState, struct etimer* data) {
 }
 
 static uint8_t event(struct state* compState, core_looci_event_t* event) {
-	//uint8_t test = 1;
-	//PUBLISH_EVENT(APPLICATION_EVENT_TYPE,&test,sizeof(test));
+	switch (event->type) {
+	case CSDS_EVENT_IR_ON:
+		// Activate PIR
+		activate(compState, 0);
+		break;
+	case CSDS_EVENT_IR_OFF:
+		// Deactivate PIR
+		deactivate(compState, 0);
+		break;
+	}
 	return 1;
 }
 
