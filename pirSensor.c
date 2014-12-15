@@ -57,7 +57,7 @@ Address:
 #ifdef LOOCI_COMPONENT_DEBUG
 #include "debug.h"
 #else
-#include "nodebug.h"
+#include "debug.h" //"nodebug.h"
 #endif
 
 struct state {
